@@ -9,11 +9,20 @@ const runner = require("./test-runner.js");
 
 const app = express();
 
-// --- 1. GÜVENLİK BAŞLIKLARI (HELMET) ---
-app.use(helmet.noSniff());
-app.use(helmet.xssFilter());
-app.use(helmet.noCache());
-app.use(helmet.hidePoweredBy({ setTo: "PHP 7.4.3" }));
+// --- 1. GÜVENLİK BAŞLIKLARI (MANUEL KESİN ÇÖZÜM) ---
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader(
+    "Cache-Control",
+    "no-store, no-cache, must-revalidate, proxy-revalidate",
+  );
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("Surrogate-Control", "no-store");
+  res.setHeader("X-Powered-By", "PHP 7.4.3");
+  next();
+});
 
 app.use("/public", express.static(process.cwd() + "/public"));
 app.use("/assets", express.static(process.cwd() + "/assets"));
