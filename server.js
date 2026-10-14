@@ -49,9 +49,13 @@ const server = app.listen(portNum, "0.0.0.0", () => {
 });
 
 // Socket.io
-const io = require("socket.io")(server);
-let players = [];
-let currentCoin = { x: 100, y: 100, value: 1, id: Date.now() };
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+  allowEIO3: true, // <-- İŞTE BÜTÜN DÜĞÜMÜ ÇÖZECEK OLAN SİHİRLİ KOD (Eski FCC botlarına izin verir)
+});
 
 io.on("connection", (socket) => {
   socket.on("init", (playerData) => {
