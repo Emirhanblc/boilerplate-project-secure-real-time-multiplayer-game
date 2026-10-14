@@ -2,31 +2,22 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const helmet = require("helmet"); // Helmet'i geri getiriyoruz
 
 const fccTestingRoutes = require("./routes/fcctesting.js");
 const runner = require("./test-runner.js");
 
 const app = express();
 
-// --- 1. EXPRESS'İN KENDİ KİMLİĞİNİ ZORLA KAPAT ---
-app.disable("x-powered-by");
+// --- 1. EN KRİTİK NOKTA: CORS HER ŞEYDEN ÖNCE GELMELİ ---
+// FCC test botunun HTTP isteklerinin engellenmemesi için en üste koyduk
+app.use(cors({ origin: "*" }));
 
-// --- 2. GÜVENLİK BAŞLIKLARI (HER ŞEYDEN ÖNCE ÇALIŞMALI) ---
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate",
-  );
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-  res.setHeader("X-Powered-By", "PHP 7.4.3");
-  next();
-});
-
-app.use(cors({ origin: "*" })); // FCC testleri için gerekli
+// --- 2. GÜVENLİK BAŞLIKLARI (FCC'nin bizzat aradığı Helmet fonksiyonları) ---
+app.use(helmet.noSniff());
+app.use(helmet.xssFilter());
+app.use(helmet.noCache());
+app.use(helmet.hidePoweredBy({ setTo: "PHP 7.4.3" }));
 
 app.use("/public", express.static(process.cwd() + "/public"));
 app.use("/assets", express.static(process.cwd() + "/assets"));
@@ -34,24 +25,21 @@ app.use("/assets", express.static(process.cwd() + "/assets"));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Anasayfayı (Oyunu) Yükle
+// Anasayfa
 app.route("/").get(function (req, res) {
-  // FCC test botu ana sayfayı denetlediği için garanti olması adına buraya da ekliyoruz
-  res.setHeader("X-Powered-By", "PHP 7.4.3");
   res.sendFile(process.cwd() + "/views/index.html");
 });
 
-// FCC test rotaları
+// FCC test rotaları (/_api/app-info dahil)
 fccTestingRoutes(app);
 
-// 404 Sayfa Bulunamadı Middleware'i
+// 404
 app.use(function (req, res, next) {
   res.status(404).type("text").send("Not Found");
 });
 
 const portNum = process.env.PORT || 3000;
 
-// Sunucuyu Başlat
 const server = app.listen(portNum, () => {
   console.log(`Bip bop! Sunucu ${portNum} portunda çalışıyor.`);
   if (process.env.NODE_ENV === "test") {
