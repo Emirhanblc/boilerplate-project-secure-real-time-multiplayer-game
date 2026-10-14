@@ -9,6 +9,13 @@ const runner = require("./test-runner.js");
 
 const app = express();
 
+// 1. HELMET GÜVENLİK BAŞLIKLARI (EN TEPEDE VE TEK SEFER)
+app.use(helmet.noSniff());
+app.use(helmet.xssFilter());
+app.use(helmet.noCache());
+app.use(helmet.hidePoweredBy({ setTo: "PHP 7.4.3" }));
+
+// 2. CORS İZİNLERİ
 app.use(
   cors({
     origin: "*",
@@ -23,17 +30,6 @@ app.use(
     ],
   }),
 );
-
-app.use(helmet.noSniff());
-app.use(helmet.xssFilter());
-app.use(helmet.noCache());
-app.use(helmet.hidePoweredBy({ setTo: "PHP 7.4.3" }));
-
-// FCC Test Botunun tam olarak aradığı kelimeler:
-app.use(helmet.noSniff());
-app.use(helmet.xssFilter());
-app.use(helmet.noCache());
-app.use(helmet.hidePoweredBy({ setTo: "PHP 7.4.3" }));
 
 app.use("/public", express.static(process.cwd() + "/public"));
 app.use("/assets", express.static(process.cwd() + "/assets"));
@@ -66,20 +62,30 @@ const server = app.listen(portNum, "0.0.0.0", () => {
   }
 });
 
-// Socket.io
+// --- 3. SOCKET.IO ---
 const io = require("socket.io")(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
   },
-  allowEIO3: true, // Eski FCC botlarının bağlanmasını sağlayan kritik ayar
+  allowEIO3: true,
 });
+
+// ÇÖKMEYİ ÖNLEYEN EKSİK DEĞİŞKENLER BURAYA EKLENDİ
+let players = [];
+let currentCoin = {
+  x: Math.floor(Math.random() * 580) + 10,
+  y: Math.floor(Math.random() * 380) + 10,
+  value: 1,
+  id: Date.now(),
+};
 
 io.on("connection", (socket) => {
   socket.on("init", (playerData) => {
     players.push(playerData);
     io.emit("update-game", { players, coin: currentCoin });
   });
+
   socket.on("move-player", (data) => {
     let player = players.find((p) => p.id === socket.id);
     if (player) {
@@ -89,6 +95,7 @@ io.on("connection", (socket) => {
     }
     io.emit("update-game", { players, coin: currentCoin });
   });
+
   socket.on("coin-collected", (data) => {
     let player = players.find((p) => p.id === data.playerId);
     if (player) {
@@ -102,6 +109,7 @@ io.on("connection", (socket) => {
     };
     io.emit("update-game", { players, coin: currentCoin });
   });
+
   socket.on("disconnect", () => {
     players = players.filter((p) => p.id !== socket.id);
     io.emit("update-game", { players, coin: currentCoin });
