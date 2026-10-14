@@ -2,14 +2,16 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const helmet = require("helmet");
 
 const fccTestingRoutes = require("./routes/fcctesting.js");
 const runner = require("./test-runner.js");
 
 const app = express();
 
-// --- 1. GÜVENLİK BAŞLIKLARI (MANUEL KESİN ÇÖZÜM) ---
+// --- 1. EXPRESS'İN KENDİ KİMLİĞİNİ ZORLA KAPAT ---
+app.disable("x-powered-by");
+
+// --- 2. GÜVENLİK BAŞLIKLARI (HER ŞEYDEN ÖNCE ÇALIŞMALI) ---
 app.use((req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-XSS-Protection", "1; mode=block");
@@ -24,16 +26,18 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(cors({ origin: "*" })); // FCC testleri için gerekli
+
 app.use("/public", express.static(process.cwd() + "/public"));
 app.use("/assets", express.static(process.cwd() + "/assets"));
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(cors({ origin: "*" })); // FCC testleri için gerekli
-
 // Anasayfayı (Oyunu) Yükle
 app.route("/").get(function (req, res) {
+  // FCC test botu ana sayfayı denetlediği için garanti olması adına buraya da ekliyoruz
+  res.setHeader("X-Powered-By", "PHP 7.4.3");
   res.sendFile(process.cwd() + "/views/index.html");
 });
 
@@ -63,11 +67,10 @@ const server = app.listen(portNum, () => {
   }
 });
 
-// --- 2. SOCKET.IO (GERÇEK ZAMANLI BAĞLANTI) ---
+// --- 3. SOCKET.IO (GERÇEK ZAMANLI BAĞLANTI) ---
 const io = require("socket.io")(server);
 
 let players = [];
-// Rastgele bir konumda ilk altını (coin) oluşturuyoruz
 let currentCoin = {
   x: Math.floor(Math.random() * 580) + 10,
   y: Math.floor(Math.random() * 380) + 10,
@@ -76,15 +79,11 @@ let currentCoin = {
 };
 
 io.on("connection", (socket) => {
-  console.log("🎮 Yeni bir oyuncu bağlandı! ID:", socket.id);
-
-  // Yeni oyuncu oyuna katıldığında onu listeye ekle ve herkese güncel durumu yolla
   socket.on("init", (playerData) => {
     players.push(playerData);
     io.emit("update-game", { players, coin: currentCoin });
   });
 
-  // Bir oyuncu hareket ettiğinde koordinatlarını sunucuda güncelle
   socket.on("move-player", (data) => {
     let player = players.find((p) => p.id === socket.id);
     if (player) {
@@ -92,17 +91,14 @@ io.on("connection", (socket) => {
       player.y = data.y;
       player.score = data.score;
     }
-    // Yeni koordinatları tüm oyunculara yayınla
     io.emit("update-game", { players, coin: currentCoin });
   });
 
-  // Bir oyuncu altına dokunduğunda puanını artır ve yeni altın oluştur
   socket.on("coin-collected", (data) => {
     let player = players.find((p) => p.id === data.playerId);
     if (player) {
       player.score += currentCoin.value;
     }
-    // Altının yerini ve ID'sini yenile
     currentCoin = {
       x: Math.floor(Math.random() * 580) + 10,
       y: Math.floor(Math.random() * 380) + 10,
@@ -112,12 +108,10 @@ io.on("connection", (socket) => {
     io.emit("update-game", { players, coin: currentCoin });
   });
 
-  // Oyuncu oyundan çıktığında
   socket.on("disconnect", () => {
-    console.log("👋 Oyuncu ayrıldı: ", socket.id);
     players = players.filter((p) => p.id !== socket.id);
     io.emit("update-game", { players, coin: currentCoin });
   });
 });
 
-module.exports = app; // Testler için gerekli
+module.exports = app;
