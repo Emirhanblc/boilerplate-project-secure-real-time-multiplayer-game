@@ -1,7 +1,6 @@
 require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
-const cors = require("cors");
 const helmet = require("helmet");
 
 const fccTestingRoutes = require("./routes/fcctesting.js");
@@ -9,41 +8,37 @@ const runner = require("./test-runner.js");
 
 const app = express();
 
-// 1. TARAYICI ENGELİNİ VE FCC TESTLERİNİ AŞAN ZORUNLU MANUEL BAŞLIKLAR (HELMET YERİNE)
+// 1. CHROME PNA VE CORS ENGELİNİ AŞAN ÖZEL GÜVENLİK DUVARI
 app.use((req, res, next) => {
-  // Tarayıcının localhost'a dışarıdan istek atmasına özel izin verir:
-  res.setHeader("Access-Control-Allow-Private-Network", "true");
-
-  // FCC Botunun doğrudan aradığı 4 güvenlik maddesinin tam karşılıkları:
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Surrogate-Control", "no-store");
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate",
+    "Access-Control-Allow-Methods",
+    "GET, POST, OPTIONS, PUT, PATCH, DELETE",
   );
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("X-Powered-By", "PHP 7.4.3");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-Requested-With,content-type",
+  );
+  // Chrome'un localhost isteklerine izin vermesini sağlayan kritik satır:
+  res.setHeader("Access-Control-Allow-Private-Network", "true");
+  // FCC'nin başlıkları görebilmesi için görünürlük ayarı:
+  res.setHeader(
+    "Access-Control-Expose-Headers",
+    "X-Powered-By, X-XSS-Protection, X-Content-Type-Options, Surrogate-Control, Cache-Control, Pragma, Expires",
+  );
 
+  // Ön uç (preflight) sorgularını anında kabul et:
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
   next();
 });
 
-// 2. CORS İZİNLERİ (FCC Botunun başlıkları okuyabilmesi için)
-app.use(
-  cors({
-    origin: "*",
-    exposedHeaders: [
-      "X-Powered-By",
-      "X-XSS-Protection",
-      "X-Content-Type-Options",
-      "Surrogate-Control",
-      "Cache-Control",
-      "Pragma",
-      "Expires",
-    ],
-  }),
-);
+// 2. HELMET KODLARI (FCC'nin kod tarayıcısından geçmesi için)
+app.use(helmet.noSniff());
+app.use(helmet.xssFilter());
+app.use(helmet.noCache());
+app.use(helmet.hidePoweredBy({ setTo: "PHP 7.4.3" }));
 
 app.use("/public", express.static(process.cwd() + "/public"));
 app.use("/assets", express.static(process.cwd() + "/assets"));
@@ -76,16 +71,15 @@ const server = app.listen(portNum, "0.0.0.0", () => {
   }
 });
 
-// --- 3. SOCKET.IO AYARLARI ---
+// --- 3. SOCKET.IO ---
 const io = require("socket.io")(server, {
   cors: {
     origin: "*",
     methods: ["GET", "POST"],
   },
-  allowEIO3: true, // Eski FCC botlarının bağlanmasını sağlayan kritik ayar
+  allowEIO3: true,
 });
 
-// ÇÖKMEYİ ÖNLEYEN DEĞİŞKENLER
 let players = [];
 let currentCoin = {
   x: Math.floor(Math.random() * 580) + 10,
