@@ -9,7 +9,25 @@ const runner = require("./test-runner.js");
 
 const app = express();
 
-app.use(cors({ origin: "*" }));
+app.use(
+  cors({
+    origin: "*",
+    exposedHeaders: [
+      "X-Powered-By",
+      "X-XSS-Protection",
+      "X-Content-Type-Options",
+      "Surrogate-Control",
+      "Cache-Control",
+      "Pragma",
+      "Expires",
+    ],
+  }),
+);
+
+app.use(helmet.noSniff());
+app.use(helmet.xssFilter());
+app.use(helmet.noCache());
+app.use(helmet.hidePoweredBy({ setTo: "PHP 7.4.3" }));
 
 // FCC Test Botunun tam olarak aradığı kelimeler:
 app.use(helmet.noSniff());
