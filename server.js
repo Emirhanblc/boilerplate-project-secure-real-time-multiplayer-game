@@ -54,7 +54,7 @@ const io = require("socket.io")(server, {
     origin: "*",
     methods: ["GET", "POST"],
   },
-  allowEIO3: true, // <-- İŞTE BÜTÜN DÜĞÜMÜ ÇÖZECEK OLAN SİHİRLİ KOD (Eski FCC botlarına izin verir)
+  allowEIO3: true, // Eski FCC botlarının bağlanmasını sağlayan kritik ayar
 });
 
 io.on("connection", (socket) => {
