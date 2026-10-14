@@ -35,7 +35,7 @@ app.use(function (req, res, next) {
 
 const portNum = process.env.PORT || 3000;
 
-const server = app.listen(portNum, () => {
+const server = app.listen(portNum, "0.0.0.0", () => {
   console.log(`Bip bop! Sunucu ${portNum} portunda çalışıyor.`);
   if (process.env.NODE_ENV === "test") {
     setTimeout(function () {
